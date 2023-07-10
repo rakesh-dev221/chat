@@ -4,14 +4,47 @@ import { RetrievalQAChain } from "langchain/chains";
 import { HNSWLib } from "langchain/vectorstores/hnswlib";
 import { OpenAIEmbeddings } from "langchain/embeddings/openai";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-
+import { DirectoryLoader } from "langchain/document_loaders/fs/directory";
 
 import * as fs from "fs";
 import dotenv from "dotenv";
 import { Vimeo } from "@vimeo/vimeo";
+import { TextLoader } from "langchain/document_loaders/fs/text";
 
-const DATA = fs.readFileSync('./document/page-page-2.json',"utf8");  
-
+const DATA = [
+    ...JSON.parse(fs.readFileSync('./document/page-page-2.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=3.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=4.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=5.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=6.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=7.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=8.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=9.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=10.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=11.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=12.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=13.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=14.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=15.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=16.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=17.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=18.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=19.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=20.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=21.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=22.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=23.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=24.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=25.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=26.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=27.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=28.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=29.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=30.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=31.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=32.json',"utf8")).data[0],
+    ...JSON.parse(fs.readFileSync('./document/page-page=last.json',"utf8")).data[0],
+];  
 
 const client = new Vimeo(
     process.env.VIMEO_CLIENT,
@@ -31,8 +64,9 @@ const model = new OpenAI({ modelName: "text-davinci-003" });
 app.use(express.json());
 
 const updateDocument = (fileName, R) => {
-    const tags = R.tags.map(t => t.name).join(', ');
-    const categories = R.categories.map(t => t.name).join(', ');
+    const tags = R.tags?.map(t => t.name).join(', ');
+    const categories = R.categories?.map(t => t.name).join(', ');
+    const userSkills = R.user?.skills?.map(t => t.name).join(', ');
     const content = `
   ###############  
     Name: ${R.name}
@@ -41,6 +75,12 @@ const updateDocument = (fileName, R) => {
     Descriptions: ${R.description}
     Tags: ${tags}
     Category: ${categories}
+    Duration: ${Math.round(R.duration / 60)} minutes
+    Language: ${R.language}
+    Owner Name: ${R.user?.name}
+    Owner Info: ${R.user?.bio}
+    Skill: ${userSkills}
+    Status: ${R.status}
   ###############
 
   `;
@@ -50,10 +90,8 @@ const updateDocument = (fileName, R) => {
     console.log(`/document/${fileName}.txt updated`);
 };
 
-const data = JSON.parse(DATA).data[0]
 
-
-// data.map(d => updateDocument('source',d));
+// DATA.map(d => updateDocument('source',d));
 
 const updateGPTModal = async (endpoint = "/me/videos?page=1&per_page=100") => {
     client.request(
@@ -93,7 +131,9 @@ app.get("/fetch-data", async (req, res) => {
 
 
 app.get("/test", async (req, res) => {
-    const question = 'what is Vicinity Studio';
+   try{
+    const question = 'Show me some videos with tag ENGLISH';
+    
     const vectorStore = await HNSWLib.load(VECTOR_STORE_PATH, new OpenAIEmbeddings());
     const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
 
@@ -102,6 +142,9 @@ app.get("/test", async (req, res) => {
     });
 
     res.json({ response })
+   }catch(e){
+    console.log(e)
+   }
 
 });
 
@@ -115,6 +158,7 @@ const trainModel = async () => {
             const vectorStore = await HNSWLib.fromDocuments(docs, new OpenAIEmbeddings());
             await vectorStore.save(VECTOR_STORE_PATH);
             console.log("end training");
+
     } catch (e) {
         console.log(e);
     }
