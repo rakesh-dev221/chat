@@ -66,4 +66,30 @@ user.get("/get-rooms", checkAuth, async (req, res) => {
   }
 });
 
+user.get("/chat", checkAuth, async (req, res) => {
+  const { room_id } = req.query;
+  try {
+    const chats = await db.Chat.findAll({
+      where: {
+        room_id,
+      },
+      order: [["id", "asc"]],
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "chat",
+      data: chats,
+    });
+  } catch (e) {
+    console.log(e)
+    return res.status(500).json({
+      success: false,
+      message: "server error",
+      error: e,
+    });
+  }
+});
+
+
 module.exports = user;

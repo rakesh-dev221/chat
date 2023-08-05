@@ -10,6 +10,8 @@ const { HNSWLib } = require("langchain/vectorstores/hnswlib");
 const { OpenAIEmbeddings } = require("langchain/embeddings/openai");
 const { RecursiveCharacterTextSplitter } = require("langchain/text_splitter");
 const user = require("./route/user");
+const db = require("./models");
+const { checkAuth } = require("./middleware/auth");
 
 const DATA = [
   ...JSON.parse(fs.readFileSync("./document/page-page-2.json", "utf8")).data[0],
@@ -157,9 +159,10 @@ app.get("/fetch-data", async (req, res) => {
   }
 });
 
-app.get("/test", async (req, res) => {
+app.post("/ask", checkAuth, async (req, res) => {
   try {
-    const question = "show me link of McD Ramadan BTS";
+
+    const { room_id, q } = req.body
 
     const vectorStore = await HNSWLib.load(
       VECTOR_STORE_PATH,
@@ -168,10 +171,28 @@ app.get("/test", async (req, res) => {
     const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
 
     const response = await chain.call({
-      query: question,
+      query: q,
     });
 
-    res.json({ response });
+    await db.Chat.create({
+      room_id: room_id,
+      sender: "user",
+      message: q
+    });
+
+    if (response) {
+      await db.Chat.create({
+        room_id: room_id,
+        sender: "bot",
+        message: response.text
+      });
+
+      return res.json({
+        room_id: room_id,
+        sender: 'bot',
+        message: response.text
+      })
+    }
   } catch (e) {
     console.log(e);
   }

@@ -13,7 +13,7 @@ module.exports = {
         type: Sequelize.INTEGER,
       },
       message: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
       },
       sender: {
         type: Sequelize.ENUM(["bot", "user"]),
